@@ -6,22 +6,17 @@ import BuyModal from '../components/BuyModal';
 export default function Market({ prices, user, updateUser }) {
   const [stocks, setStocks] = useState([]);
   const [selected, setSelected] = useState(null);
-  const prevPrices = useRef({});
+  const initialPrices = useRef({});
 
   useEffect(() => {
     api.get('/stocks').then((r) => {
       setStocks(r.data);
-      // Seed prices from DB on first load
+      // Сохраняем начальные цены из БД — они не сбрасываются при WS обновлениях
       const initial = {};
       r.data.forEach((s) => (initial[s.ticker] = s.price));
-      prevPrices.current = initial;
+      initialPrices.current = initial;
     });
   }, []);
-
-  // Track price changes for up/down indicator
-  useEffect(() => {
-    prevPrices.current = { ...prices };
-  }, [prices]);
 
   const handleBuySuccess = (data) => {
     updateUser({ walletBalance: data.walletBalance, holdings: data.holdings });
@@ -41,15 +36,19 @@ export default function Market({ prices, user, updateUser }) {
         {stocks.length === 0 && (
           <p style={{ padding: 20, color: 'var(--text2)' }}>No tickers yet. Be the first to create one!</p>
         )}
-        {stocks.map((stock) => (
-          <TickerRow
-            key={stock.ticker}
-            stock={stock}
-            currentPrice={prices[stock.ticker] ?? stock.price}
-            prevPrice={prevPrices.current[stock.ticker]}
-            onBuy={setSelected}
-          />
-        ))}
+        {stocks.map((stock) => {
+          const currentPrice = prices[stock.ticker] ?? stock.price;
+          const basePrice = initialPrices.current[stock.ticker] ?? stock.price;
+          return (
+            <TickerRow
+              key={stock.ticker}
+              stock={stock}
+              currentPrice={currentPrice}
+              prevPrice={basePrice}
+              onBuy={setSelected}
+            />
+          );
+        })}
       </div>
 
       {selected && (
