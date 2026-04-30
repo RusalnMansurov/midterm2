@@ -6,15 +6,27 @@ import BuyModal from '../components/BuyModal';
 export default function Market({ prices, user, updateUser }) {
   const [stocks, setStocks] = useState([]);
   const [selected, setSelected] = useState(null);
-  const initialPrices = useRef({});
+  const savedPrices = useRef({});
 
   useEffect(() => {
+    // Загружаем сохранённые цены из localStorage
+    try {
+      const stored = JSON.parse(localStorage.getItem('pex_base_prices') || '{}');
+      savedPrices.current = stored;
+    } catch {}
+
     api.get('/stocks').then((r) => {
       setStocks(r.data);
-      // Сохраняем начальные цены из БД — они не сбрасываются при WS обновлениях
-      const initial = {};
-      r.data.forEach((s) => (initial[s.ticker] = s.price));
-      initialPrices.current = initial;
+      // Берём сохранённые цены, для новых тикеров берём текущую цену из БД
+      const stored = savedPrices.current;
+      const updated = { ...stored };
+      r.data.forEach((s) => {
+        if (!updated[s.ticker]) {
+          updated[s.ticker] = s.price;
+        }
+      });
+      savedPrices.current = updated;
+      localStorage.setItem('pex_base_prices', JSON.stringify(updated));
     });
   }, []);
 
@@ -38,7 +50,7 @@ export default function Market({ prices, user, updateUser }) {
         )}
         {stocks.map((stock) => {
           const currentPrice = prices[stock.ticker] ?? stock.price;
-          const basePrice = initialPrices.current[stock.ticker] ?? stock.price;
+          const basePrice = savedPrices.current[stock.ticker] ?? currentPrice;
           return (
             <TickerRow
               key={stock.ticker}
